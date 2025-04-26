@@ -94,13 +94,8 @@ class MainExecutable(Executable):
 
       if not existed:
         print(f"[*] injected {bn}")
-
-    # orion has a *weak* dependency to substrate,
-    # but will still crash without it. nice !!!!!!!!!!!
-    ## edit: actually, maybe this is in case someone uses Internal backend?
-    ## someone test it pls!!!
-    if "orion." in needed:
-      needed.add("substrate.")
+    
+    needed.add("substrate.")
 
     for missing in needed:
       real = self.common[missing]["name"]  # e.g. "Orion.framework"
