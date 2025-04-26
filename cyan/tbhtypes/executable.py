@@ -25,22 +25,6 @@ class Executable:
     "substrate.": {
       "name": "CydiaSubstrate.framework",
       "path": "@rpath/CydiaSubstrate.framework/CydiaSubstrate"
-    },
-    "orion.": {
-      "name": "Orion.framework",
-      "path": "@rpath/Orion.framework/Orion"
-    },
-    "cephei.": {
-      "name": "Cephei.framework",
-      "path": "@rpath/Cephei.framework/Cephei"
-    },
-    "cepheiui.": {
-      "name": "CepheiUI.framework",
-      "path": "@rpath/CepheiUI.framework/CepheiUI"
-    },
-    "cepheiprefs.": {
-      "name": "CepheiPrefs.framework",
-      "path": "@rpath/CepheiPrefs.framework/CepheiPrefs"
     }
   }
 
