@@ -97,14 +97,11 @@ class MainExecutable(Executable):
     
     needed.add("substrate.")
 
-    for missing in needed:
-      real = self.common[missing]["name"]  # e.g. "Orion.framework"
-      ip = f"{FRAMEWORKS_DIR}/{real}"
-      existed = tbhutils.delete_if_exists(ip, real)
-      shutil.copytree(f"{self.install_dir}/extras/{real}", ip)
-
-      if not existed:
-        print(f"[*] auto-injected {real}")
+    real = "CydiaSubstrate.framework"
+    ip = f"{FRAMEWORKS_DIR}/{real}"
+    existed = tbhutils.delete_if_exists(ip, real)
+    shutil.copytree(f"{self.install_dir}/extras/{real}", ip)
+    print(f"[*] auto-injected {real}")
 
     # FINALLY !!
     if self.inj is not None:  # type: ignore
