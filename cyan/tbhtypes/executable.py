@@ -127,6 +127,61 @@ class Executable:
 
     return deps
 
+  def get_rpaths(self) -> list[str]:
+    proc = subprocess.run(
+      [self.otool, "-l", self.path],
+      capture_output=True, text=True
+    )
+
+    if proc.returncode != 0:
+      return []
+
+    rpaths: list[str] = []
+    lines = proc.stdout.splitlines()
+    for i, line in enumerate(lines):
+      if line.strip() != "cmd LC_RPATH":
+        continue
+
+      for j in range(i + 1, min(i + 8, len(lines))):
+        s = lines[j].strip()
+        if s.startswith("path "):
+          rpaths.append(s.split(" (offset", 1)[0][5:])
+          break
+
+    return rpaths
+
+  def ensure_single_rpath(self, rpath: str) -> bool:
+    existing = self.get_rpaths()
+    count = existing.count(rpath)
+    changed = False
+
+    if count == 0:
+      add = subprocess.run(
+        [self.nt, "-add_rpath", rpath, self.path],
+        stderr=subprocess.DEVNULL
+      )
+
+      if add.returncode == 0:
+        return True
+
+      print(f"[!] failed to add LC_RPATH {rpath} in {self.bn}")
+      return False
+
+    while count > 1:
+      dele = subprocess.run(
+        [self.nt, "-delete_rpath", rpath, self.path],
+        stderr=subprocess.DEVNULL
+      )
+
+      if dele.returncode != 0:
+        print(f"[!] failed to remove duplicate LC_RPATH {rpath} in {self.bn}")
+        break
+
+      changed = True
+      count -= 1
+
+    return changed
+
   def patch_sdk26(self) -> bool:
     try:
       with open(self.path, "rb+") as f:

@@ -42,12 +42,7 @@ class MainExecutable(Executable):
         for k in (".deb", ".dylib", ".framework")
     ):
       os.makedirs(FRAMEWORKS_DIR, exist_ok=True)
-
-      # some apps really dont have this lol
-      subprocess.run(
-        [self.nt, "-add_rpath", "@executable_path/Frameworks", self.path],
-        stderr=subprocess.DEVNULL
-      )
+      self.ensure_single_rpath("@executable_path/Frameworks")
 
     # `extract_deb()` will modify `tweaks`, which is why we make a copy
     cwd = os.getcwd()
