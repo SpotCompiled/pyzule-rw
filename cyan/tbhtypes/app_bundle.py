@@ -82,6 +82,34 @@ class AppBundle:
   def thin_all(self) -> None:
     self.mass_operate("thinned", "thin")
 
+  def patch_sdk26_all(self) -> None:
+    if self.cached_executables is None:
+      self.cached_executables = self.get_executables()
+
+    count = 1 if self.executable.patch_sdk26() else 0
+
+    for ts in self.cached_executables:
+      if ts.endswith(".dylib"):
+        call = Executable(ts).patch_sdk26()
+      else:
+        pl = Plist(f"{ts}/Info.plist", None, False)
+        if not pl.success:
+          continue
+
+        main_exec = pl["CFBundleExecutable"]
+        if main_exec is None:
+          continue
+
+        call = Executable(f"{ts}/{main_exec}").patch_sdk26()
+
+      if call:
+        count += 1
+
+    if count == 0:
+      print("[?] no Mach-O SDK/build target values were patched")
+    else:
+      print(f"[*] patched SDK/build target in \033[96m{count}\033[0m item(s)")
+
   def remove_all_extensions(self) -> None:
     if self.remove("Extensions", "PlugIns"):
       print("[*] removed app extensions")

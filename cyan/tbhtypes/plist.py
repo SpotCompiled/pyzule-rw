@@ -123,6 +123,15 @@ class Plist:
     else:
       print(f"[?] minimum version was already \"{minimum}\"")
 
+  def set_ios26_target_and_sdk(self) -> None:
+    c1 = self.change("26.0", "MinimumOSVersion", "DTPlatformVersion")
+    c2 = self.change("iphoneos26.0", "DTSDKName")
+
+    if c1 or c2:
+      print("[*] set build target and SDK to iOS 26")
+    else:
+      print("[?] build target and SDK were already set to iOS 26")
+
   def merge_plist(self, path: str) -> None:
     pl = Plist(path, throw=False)
     if not pl.success:

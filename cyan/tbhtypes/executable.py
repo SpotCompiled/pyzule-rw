@@ -1,11 +1,22 @@
 import os
 import sys
+import struct
 import subprocess
 
 from cyan import tbhutils
 
 
 class Executable:
+  FAT_MAGIC = 0xcafebabe
+  FAT_CIGAM = 0xbebafeca
+  FAT_MAGIC_64 = 0xcafebabf
+  FAT_CIGAM_64 = 0xbfbafeca
+  MH_MAGIC_64 = 0xfeedfacf
+  MH_CIGAM_64 = 0xcffaedfe
+  LC_BUILD_VERSION = 0x32
+  LC_VERSION_MIN_IPHONEOS = 0x25
+  IOS26_PACKED = 26 << 16
+
   install_dir, specific = tbhutils.get_tools_dir()
   nt = f"{specific}/install_name_tool"
   ldid = f"{specific}/ldid"
@@ -115,4 +126,117 @@ class Executable:
         deps.append(dep.split()[0])  # split() removes whitespace
 
     return deps
+
+  def patch_sdk26(self) -> bool:
+    try:
+      with open(self.path, "rb+") as f:
+        data = bytearray(f.read())
+
+        if not self._patch_macho_sdk26(data):
+          return False
+
+        f.seek(0)
+        f.write(data)
+        f.truncate()
+
+      print(f"[*] patched SDK/build target to iOS 26 in {self.bn}")
+      return True
+    except OSError as e:
+      print(f"[!] failed to patch {self.bn}: {e}")
+      return False
+
+  def _patch_macho_sdk26(self, data: bytearray) -> bool:
+    if len(data) < 4:
+      return False
+
+    magic = struct.unpack_from(">I", data, 0)[0]
+    if magic in (self.FAT_MAGIC, self.FAT_CIGAM, self.FAT_MAGIC_64, self.FAT_CIGAM_64):
+      return self._patch_fat_macho_sdk26(data, magic)
+
+    return self._patch_macho_slice_sdk26(data, 0)
+
+  def _patch_fat_macho_sdk26(self, data: bytearray, magic: int) -> bool:
+    if magic in (self.FAT_MAGIC, self.FAT_MAGIC_64):
+      endian = ">"
+    else:
+      endian = "<"
+
+    is_fat64 = magic in (self.FAT_MAGIC_64, self.FAT_CIGAM_64)
+    header_size = 8
+    arch_size = 32 if is_fat64 else 20
+
+    if len(data) < header_size:
+      return False
+
+    nfat = struct.unpack_from(f"{endian}I", data, 4)[0]
+    changed = False
+
+    for i in range(nfat):
+      arch_off = header_size + (i * arch_size)
+      if arch_off + arch_size > len(data):
+        break
+
+      if is_fat64:
+        offset = struct.unpack_from(f"{endian}Q", data, arch_off + 8)[0]
+      else:
+        offset = struct.unpack_from(f"{endian}I", data, arch_off + 8)[0]
+
+      if self._patch_macho_slice_sdk26(data, offset):
+        changed = True
+
+    return changed
+
+  def _patch_macho_slice_sdk26(self, data: bytearray, offset: int) -> bool:
+    mh64_size = 32
+    if offset < 0 or (offset + mh64_size) > len(data):
+      return False
+
+    magic_le = struct.unpack_from("<I", data, offset)[0]
+    magic_be = struct.unpack_from(">I", data, offset)[0]
+
+    if magic_le == self.MH_MAGIC_64:
+      endian = "<"
+    elif magic_be == self.MH_CIGAM_64:
+      endian = ">"
+    else:
+      return False
+
+    ncmds = struct.unpack_from(f"{endian}I", data, offset + 16)[0]
+    cmd_off = offset + mh64_size
+    changed = False
+
+    for _ in range(ncmds):
+      if cmd_off + 8 > len(data):
+        break
+
+      cmd, cmdsize = struct.unpack_from(f"{endian}II", data, cmd_off)
+      if cmdsize < 8 or cmd_off + cmdsize > len(data):
+        break
+
+      if cmd == self.LC_BUILD_VERSION and cmdsize >= 24:
+        minos = struct.unpack_from(f"{endian}I", data, cmd_off + 12)[0]
+        sdk = struct.unpack_from(f"{endian}I", data, cmd_off + 16)[0]
+
+        if minos != self.IOS26_PACKED:
+          struct.pack_into(f"{endian}I", data, cmd_off + 12, self.IOS26_PACKED)
+          changed = True
+
+        if sdk != self.IOS26_PACKED:
+          struct.pack_into(f"{endian}I", data, cmd_off + 16, self.IOS26_PACKED)
+          changed = True
+      elif cmd == self.LC_VERSION_MIN_IPHONEOS and cmdsize >= 16:
+        version = struct.unpack_from(f"{endian}I", data, cmd_off + 8)[0]
+        sdk = struct.unpack_from(f"{endian}I", data, cmd_off + 12)[0]
+
+        if version != self.IOS26_PACKED:
+          struct.pack_into(f"{endian}I", data, cmd_off + 8, self.IOS26_PACKED)
+          changed = True
+
+        if sdk != self.IOS26_PACKED:
+          struct.pack_into(f"{endian}I", data, cmd_off + 12, self.IOS26_PACKED)
+          changed = True
+
+      cmd_off += cmdsize
+
+    return changed
 

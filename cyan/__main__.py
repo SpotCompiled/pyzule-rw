@@ -88,6 +88,10 @@ def main() -> None:
     "-g", "--remove-encrypted", action="store_true",
     help="only remove encrypted app extensions"
   )
+  parser.add_argument(
+    "-gl", "--ios26", action="store_true",
+    help="set build target and SDK metadata to iOS 26"
+  )
 
   parser.add_argument(
     "-c", "--compress", metavar="level", type=int, default=6,

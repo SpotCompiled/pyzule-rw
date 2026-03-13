@@ -64,6 +64,9 @@ def main(parser: ArgumentParser) -> None:
       app.plist.change_bundle_id(args.b)
     if args.m is not None:
       app.plist.change_minimum_version(args.m)
+    if args.ios26:
+      app.plist.set_ios26_target_and_sdk()
+      app.patch_sdk26_all()
     if args.k is not None:
       app.change_icon(args.k, tmpdir)
     if args.l is not None:
